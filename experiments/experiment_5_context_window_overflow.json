@@ -1,0 +1,28 @@
+{
+  "experiment_id": "exp_005",
+  "experiment_name": "Context Window Management - Long Conversations",
+  "description": "Testing behavior when conversation history grows large and approaches context limits",
+  "problem": "Factor the polynomial: x³ - 6x² + 11x - 6",
+  "reference_solution": "Using rational root theorem, test factors of -6: ±1, ±2, ±3, ±6\nTest x=1: 1-6+11-6=0 ✓\nSo (x-1) is a factor\nDivide: (x³-6x²+11x-6)÷(x-1) = x²-5x+6\nFactor quadratic: x²-5x+6 = (x-2)(x-3)\nComplete factorization: (x-1)(x-2)(x-3)",
+  "conversation_length": 25,
+  "conversation_summary": "Extended back-and-forth conversation with student asking many clarifying questions, making small incremental progress, and the tutor providing patient guidance. After 25 messages, conversation history contains ~12,000 tokens.",
+  "metrics": {
+    "total_messages": 25,
+    "estimated_tokens_in_history": 12000,
+    "system_prompt_tokens": 800,
+    "reference_solution_tokens": 300,
+    "total_context_used": 13100,
+    "context_limit": 200000,
+    "context_utilization": "6.55%"
+  },
+  "findings": "With Claude Haiku 4.5's 200K context window, overflow is unlikely for typical tutoring sessions. However, BLUEPRINT.md recommends implementing conversation summarization to prevent context overflow. Our implementation truncates to most recent 20 messages, which is reasonable. Two concerns: (1) Persona consistency degrades over long conversations, (2) Cost increases linearly with conversation length if caching fails.",
+  "importance": "MEDIUM - Not an immediate issue with 200K context, but important for production at scale.",
+  "score": 7.5,
+  "score_reasoning": "Good truncation strategy implemented (keep first message + recent 19). However, ISSUES exist: (1) Truncation loses mid-conversation context that might be pedagogically important, (2) No conversation summarization, just dropping messages, (3) No testing of persona consistency degradation over time.",
+  "recommended_improvements": [
+    "Implement conversation summarization instead of truncation: 'Student initially struggled with rational root theorem but grasped it after examples'",
+    "Cache static content (system prompt, problem, reference solution) separately from conversation",
+    "Monitor persona consistency with automated checks: 'Is the tutor giving away answers in later messages?'",
+    "Add conversation reset option: 'Would you like to start fresh on a new approach?'"
+  ]
+}

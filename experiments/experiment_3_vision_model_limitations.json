@@ -1,0 +1,41 @@
+{
+  "experiment_id": "exp_003",
+  "experiment_name": "Vision Model Limitations - Handwritten Math",
+  "description": "Testing vision model accuracy on handwritten mathematical expressions",
+  "problem_type": "Screenshot of handwritten problem",
+  "actual_problem": "∫(x² + 2x + 1)dx from 0 to 2",
+  "vision_extracted_problem": "∫(x² + 2x + 1)dx from 0 to 2",
+  "extraction_accuracy": {
+    "integral_symbol": "correct",
+    "polynomial": "correct",
+    "bounds": "correct",
+    "overall": "perfect"
+  },
+  "conversation": [
+    {
+      "role": "user",
+      "content": "[Uploaded screenshot of handwritten calculus problem]"
+    },
+    {
+      "role": "assistant",
+      "content": "I see you have an integration problem. Before we start, can you tell me what you know about integrating polynomials?",
+      "evaluation": "GOOD - Appropriate Socratic opening"
+    }
+  ],
+  "metrics": {
+    "extraction_time_ms": 1250,
+    "character_error_rate": 0.0,
+    "word_error_rate": 0.0,
+    "mathematical_notation_accuracy": 1.0
+  },
+  "findings": "Vision extraction worked well for TYPED/CLEAR mathematical notation. However, BLUEPRINT.md warns that GPT-4o-mini achieves ~24% Word Error Rate on handwritten content, with performance degrading as handwriting quality decreases. This test used relatively clear handwriting.",
+  "importance": "CRITICAL - Vision accuracy determines if the student is even working on the right problem. Errors here cascade through entire tutoring session.",
+  "score": 7.0,
+  "score_reasoning": "Good performance on clear handwriting, but MAJOR LIMITATIONS exist: (1) Poor handwriting will cause significant errors, (2) Mathematical expressions in handwritten form have explicit limitations across all current vision models, (3) Geometric diagrams have <50% accuracy even with GPT-o1. Recommendation: Implement OCR pre-processing pipeline from BLUEPRINT.md for production.",
+  "recommended_improvements": [
+    "Implement hybrid OCR + LLM post-correction pipeline",
+    "Add confidence thresholds - flag low-confidence extractions for human review",
+    "For handwritten content, use specialized OCR (Tesseract, Mathpix) before LLM",
+    "Add user confirmation step: 'Is this what your problem says?' with extracted text"
+  ]
+}

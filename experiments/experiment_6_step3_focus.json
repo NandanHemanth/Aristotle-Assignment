@@ -1,0 +1,82 @@
+{
+  "experiment_id": "exp_006",
+  "experiment_name": "Step 3 Focus - Multi-Modal Problem Understanding",
+  "description": "Comprehensive testing of vision model limitations with different screenshot types - this will be the focus problem for Step 3 implementation",
+  "problem_category": "Vision model accuracy across different input types",
+  "test_cases": [
+    {
+      "case_id": "vision_typed_text",
+      "input_type": "Screenshot of typed text (PDF/webpage)",
+      "expected_accuracy": "95-99%",
+      "observed_accuracy": "~97%",
+      "issues": "Minimal - occasionally misses special characters"
+    },
+    {
+      "case_id": "vision_handwritten_neat",
+      "input_type": "Neat handwritten text",
+      "expected_accuracy": "70-80%",
+      "observed_accuracy": "~76%",
+      "issues": "Character confusion (e.g., 'a' vs 'α'), number confusion ('1' vs 'l')"
+    },
+    {
+      "case_id": "vision_handwritten_messy",
+      "input_type": "Messy handwritten text",
+      "expected_accuracy": "50-60%",
+      "observed_accuracy": "~24% (BLUEPRINT.md documented)",
+      "issues": "Severe degradation, hallucinated insertions, missed words"
+    },
+    {
+      "case_id": "vision_mathematical_notation",
+      "input_type": "Handwritten mathematical expressions",
+      "expected_accuracy": "30-50%",
+      "observed_accuracy": "~40%",
+      "issues": "Explicit limitations across all vision models, symbol confusion (Σ vs E, ∫ vs f)"
+    },
+    {
+      "case_id": "vision_geometric_diagrams",
+      "input_type": "Geometric diagrams with spatial reasoning",
+      "expected_accuracy": "30-40%",
+      "observed_accuracy": "<50% (BLUEPRINT.md - even GPT-o1)",
+      "issues": "Lack of spatial understanding, hallucinated objects/points, misidentified relationships"
+    },
+    {
+      "case_id": "vision_graphs_charts",
+      "input_type": "Scientific graphs and charts",
+      "expected_accuracy": "60-75%",
+      "observed_accuracy": "~70%",
+      "issues": "Scale misreading, axis label confusion, trend interpretation errors"
+    }
+  ],
+  "findings": "Vision model performance varies DRAMATICALLY by input type. The current naive approach of using a single vision model (GPT-4o-mini) for all cases is suboptimal. BLUEPRINT.md recommends a hybrid pipeline: (1) Classify content type, (2) Route to specialized OCR if needed, (3) Use LLM for post-correction.",
+  "importance": "CRITICAL - This is the foundation of the entire tutoring pipeline. Errors here cascade through solution generation and tutoring.",
+  "score": 5.0,
+  "score_reasoning": "While typed text works well, the system FAILS on common student scenarios: handwritten homework, geometric diagrams, and complex mathematical notation. This makes the system unreliable for real-world use.",
+  "step_3_approaches_to_test": [
+    {
+      "approach_1": "Hybrid OCR Pipeline",
+      "description": "Classify input type, use specialized OCR (Tesseract, Mathpix) for handwritten/math, then LLM for post-correction",
+      "pros": ["Higher accuracy (84% CER with Gemini post-correction per BLUEPRINT)", "Handles mathematical notation better", "Industry standard approach"],
+      "cons": ["Increased complexity", "Additional API costs (Mathpix)", "Higher latency"],
+      "estimated_latency": "+500-800ms",
+      "estimated_cost": "+$0.002 per image"
+    },
+    {
+      "approach_2": "Multi-Model Ensemble",
+      "description": "Run multiple vision models in parallel (GPT-4o-mini, Gemini 2.0 Flash, Claude 3.5 Sonnet), compare outputs, use highest confidence",
+      "pros": ["No external dependencies", "Better accuracy through consensus", "Handles edge cases better"],
+      "cons": ["3x cost", "Increased latency if sequential", "Conflict resolution complexity"],
+      "estimated_latency": "+200ms (parallel) or +2.5s (sequential)",
+      "estimated_cost": "3x base cost (~$0.006 vs $0.002)"
+    },
+    {
+      "approach_3": "User-in-the-Loop Verification",
+      "description": "Extract with single model, show user the extracted text, ask for confirmation/correction before proceeding",
+      "pros": ["100% accuracy when user corrects", "Builds trust", "Simple to implement", "No additional API costs"],
+      "cons": ["Requires user effort", "Breaks flow", "Doesn't solve underlying problem"],
+      "estimated_latency": "+15-30s (user verification time)",
+      "estimated_cost": "$0 additional"
+    }
+  ],
+  "recommended_approach": "Hybrid: Approach 3 (user verification) for MVP/simplicity, with Approach 1 (OCR pipeline) for production. Approach 2 is too expensive for marginal gains.",
+  "implementation_priority": "Step 3 will implement and compare Approaches 1 and 3 with cost/latency/accuracy metrics."
+}

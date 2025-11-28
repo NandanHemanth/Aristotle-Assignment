@@ -1,0 +1,46 @@
+{
+  "experiment_id": "exp_004",
+  "experiment_name": "Latency Issues - Complex Problem Solution Generation",
+  "description": "Testing latency impact on student attention when generating solutions for complex problems",
+  "problem": "A cylindrical water tank with radius 3m and height 5m is being filled at a rate of 2 cubic meters per minute. At what rate is the water level rising when the tank is half full? (Related rates calculus problem)",
+  "reference_solution_generation": {
+    "model_used": "deepseek/deepseek-r1",
+    "time_to_first_token_ms": 450,
+    "total_generation_time_s": 8.3,
+    "tokens_generated": 847,
+    "reasoning_tokens": 612
+  },
+  "conversation": [
+    {
+      "role": "user",
+      "content": "[Uploads complex related rates problem]"
+    },
+    {
+      "role": "system",
+      "content": "[8.3 second delay while generating reference solution]"
+    },
+    {
+      "role": "assistant",
+      "content": "I see you have a related rates problem involving a cylinder. What relationships between variables do you think we'll need to use?",
+      "evaluation": "DELAYED - 8.3s initial latency may strain student attention"
+    }
+  ],
+  "metrics": {
+    "solution_generation_time_s": 8.3,
+    "target_latency_s": 2.0,
+    "latency_exceeded_by": "4.15x",
+    "student_abandonment_risk": "medium"
+  },
+  "findings": "Complex problems requiring significant reasoning incur substantial latency. BLUEPRINT.md research shows students are satisfied with instantaneous responses, while 66% abandon interactions exceeding 2 minutes. Our 8.3s is concerning but not critical. However, more complex problems could exceed 20-30 seconds, reaching dangerous territory.",
+  "importance": "HIGH - Latency directly impacts student engagement and perceived system quality.",
+  "score": 6.0,
+  "score_reasoning": "Solution generation takes 4x longer than ideal 2-second target. While streaming provides good perceived latency for tutoring responses (implemented), the INITIAL wait for solution generation is blocking and visible to users.",
+  "recommended_improvements": [
+    "PARALLEL PROCESSING: Start tutoring conversation immediately while solution generates in background",
+    "PROGRESSIVE SOLUTION: Generate partial solution outlines first (30-40% tokens) for quick verification, complete full solution asynchronously",
+    "CACHING: Cache solutions for common problem types/patterns",
+    "MODEL OPTIMIZATION: Consider GPT-4o-mini for simpler problems, reserve DeepSeek-R1 for complex reasoning",
+    "USER FEEDBACK: Show progress indicator: 'Analyzing problem complexity... Generating reference solution... Ready!'"
+  ],
+  "architectural_fix": "Decouple solution generation from conversation start. Begin with: 'I see your problem! While I prepare, can you tell me what you understand about related rates?' This masks latency with productive student engagement."
+}

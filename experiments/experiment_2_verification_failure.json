@@ -1,0 +1,47 @@
+{
+  "experiment_id": "exp_002",
+  "experiment_name": "Verification Failure - Missing Student Errors",
+  "description": "Testing if the verification layer catches subtle mathematical errors in student work",
+  "problem": "Solve the system of equations:\n2x + y = 10\nx - y = 2",
+  "reference_solution": "From equation 2: x = y + 2\nSubstitute into equation 1: 2(y + 2) + y = 10\n2y + 4 + y = 10\n3y = 6\ny = 2\nThen x = y + 2 = 4\nSolution: x = 4, y = 2",
+  "conversation": [
+    {
+      "role": "user",
+      "content": "I'll solve this using substitution. From the second equation, x = y + 2. Substituting into the first equation: 2(y + 2) + y = 10, which gives 2y + 2 + y = 10."
+    },
+    {
+      "role": "assistant",
+      "content": "Great start with substitution! I notice you wrote 2y + 2 + y = 10. Can you walk me through how you expanded 2(y + 2)?",
+      "evaluation": "EXCELLENT - Caught the algebraic error (should be 2y + 4, not 2y + 2)"
+    },
+    {
+      "role": "user",
+      "content": "Oh wait, I see the mistake. It should be 2y + 4 + y = 10, so 3y + 4 = 10, therefore 3y = 6 and y = 2."
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect correction! Now that you have y = 2, what's the next step?",
+      "evaluation": "GOOD - Verified correction, prompted next step"
+    },
+    {
+      "role": "user",
+      "content": "Since y = 2, from x = y + 2, we get x = 4. So the solution is x = 4, y = 2."
+    },
+    {
+      "role": "assistant",
+      "content": "Excellent work! You've found the correct solution. Would you like to verify it by substituting back into both original equations?",
+      "evaluation": "GOOD - Confirmed correct answer, suggested verification"
+    }
+  ],
+  "metrics": {
+    "errors_in_student_work": 1,
+    "errors_caught_by_verifier": 1,
+    "errors_missed_by_verifier": 0,
+    "false_positives": 0,
+    "verification_accuracy": 1.0
+  },
+  "findings": "The verification layer successfully identified a common algebraic error (incorrect distribution). However, BLUEPRINT.md research indicates that 'LLMs struggle to locate first error steps in student solutions even when given reference answers.' This test case was relatively simple - more complex multi-step errors may be missed.",
+  "importance": "HIGH - Accurate error detection is crucial for effective tutoring. Missing errors leads to students cementing misconceptions.",
+  "score": 8.0,
+  "score_reasoning": "Good performance on simple error detection, but needs testing with: (1) errors in later steps when early steps are correct, (2) conceptual errors vs. arithmetic errors, (3) multiple simultaneous errors."
+}
