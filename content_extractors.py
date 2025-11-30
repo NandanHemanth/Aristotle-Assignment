@@ -5,11 +5,18 @@ Optimized for educational content with focus on latency and accuracy.
 
 import re
 from typing import Tuple, Optional, Dict
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 import requests
 from bs4 import BeautifulSoup
 import time
+
+# Try to import youtube_transcript_api with error handling
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+    from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+    YOUTUBE_API_AVAILABLE = True
+except Exception as e:
+    YOUTUBE_API_AVAILABLE = False
+    print(f"Warning: YouTube Transcript API not available: {e}")
 
 
 class YouTubeExtractor:
@@ -55,11 +62,23 @@ class YouTubeExtractor:
         """
         start_time = time.time()
 
+        if not YOUTUBE_API_AVAILABLE:
+            return "Error: YouTube Transcript API not available. Please install: pip install youtube-transcript-api", {
+                "error": True,
+                "extraction_time": time.time() - start_time,
+            }
+
         try:
-            # Get transcript
+            # Get transcript with better error handling
             transcript_list = YouTubeTranscriptApi.get_transcript(
                 video_id, languages=languages
             )
+
+            if not transcript_list:
+                return "Error: No transcript found for this video", {
+                    "error": True,
+                    "extraction_time": time.time() - start_time,
+                }
 
             # Combine transcript segments
             full_text = " ".join([segment["text"] for segment in transcript_list])
@@ -79,17 +98,29 @@ class YouTubeExtractor:
                 "extraction_time": extraction_time,
                 "word_count": len(full_text.split()),
                 "has_timestamps": True,
+                "title": f"YouTube Video {video_id}",
             }
 
             return full_text, metadata
 
-        except (TranscriptsDisabled, NoTranscriptFound) as e:
-            return f"Error: Could not retrieve transcript. {str(e)}", {
+        except TranscriptsDisabled:
+            return "Error: Transcripts are disabled for this video. The video owner has disabled captions.", {
+                "error": True,
+                "extraction_time": time.time() - start_time,
+            }
+        except NoTranscriptFound:
+            return "Error: No transcript found. This video may not have captions available.", {
                 "error": True,
                 "extraction_time": time.time() - start_time,
             }
         except Exception as e:
-            return f"Error: {str(e)}", {
+            error_msg = str(e)
+            if "no element found" in error_msg.lower():
+                return "Error: Unable to parse YouTube response. The video may be unavailable or private.", {
+                    "error": True,
+                    "extraction_time": time.time() - start_time,
+                }
+            return f"Error: {error_msg}", {
                 "error": True,
                 "extraction_time": time.time() - start_time,
             }
@@ -148,7 +179,7 @@ class URLExtractor:
     @staticmethod
     def extract_with_requests(url: str) -> Tuple[str, Dict]:
         """
-        Fallback: Extract content using requests + BeautifulSoup (sync).
+        Extract content using requests + BeautifulSoup with multiple parsers.
 
         Args:
             url: Web URL to extract
@@ -160,27 +191,56 @@ class URLExtractor:
 
         try:
             headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate",
+                "Connection": "keep-alive",
             }
-            response = requests.get(url, headers=headers, timeout=10)
+            
+            response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
             response.raise_for_status()
 
-            soup = BeautifulSoup(response.text, "html.parser")
+            # Try multiple parsers in order of preference
+            parsers = ['lxml', 'html.parser', 'html5lib']
+            soup = None
+            
+            for parser in parsers:
+                try:
+                    soup = BeautifulSoup(response.content, parser)
+                    break
+                except Exception:
+                    continue
+            
+            if soup is None:
+                soup = BeautifulSoup(response.content, "html.parser")
 
-            # Remove script and style elements
-            for script in soup(["script", "style", "nav", "footer", "header"]):
-                script.decompose()
+            # Remove unwanted elements
+            for element in soup(["script", "style", "nav", "footer", "header", "aside", "iframe", "noscript"]):
+                element.decompose()
 
-            # Get text content
-            text = soup.get_text(separator="\n", strip=True)
+            # Try to find main content
+            main_content = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile('content|main|article', re.I))
+            
+            if main_content:
+                text = main_content.get_text(separator="\n", strip=True)
+            else:
+                text = soup.get_text(separator="\n", strip=True)
 
             # Clean up whitespace
             lines = [line.strip() for line in text.splitlines() if line.strip()]
             content = "\n".join(lines)
 
+            # Get title
+            title = "Unknown"
+            if soup.title and soup.title.string:
+                title = soup.title.string.strip()
+            elif soup.find('h1'):
+                title = soup.find('h1').get_text(strip=True)
+
             metadata = {
                 "url": url,
-                "title": soup.title.string if soup.title else "Unknown",
+                "title": title,
                 "extraction_time": time.time() - start_time,
                 "word_count": len(content.split()),
                 "success": True,
@@ -189,6 +249,21 @@ class URLExtractor:
 
             return content, metadata
 
+        except requests.exceptions.Timeout:
+            return "Error: Request timed out. The website took too long to respond.", {
+                "error": True,
+                "extraction_time": time.time() - start_time,
+            }
+        except requests.exceptions.ConnectionError:
+            return "Error: Could not connect to the website. Check your internet connection.", {
+                "error": True,
+                "extraction_time": time.time() - start_time,
+            }
+        except requests.exceptions.HTTPError as e:
+            return f"Error: HTTP {e.response.status_code} - {e.response.reason}", {
+                "error": True,
+                "extraction_time": time.time() - start_time,
+            }
         except Exception as e:
             return f"Error: {str(e)}", {
                 "error": True,

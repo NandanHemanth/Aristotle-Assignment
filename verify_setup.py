@@ -84,7 +84,7 @@ def check_files():
     print("=" * 50)
     
     required_files = [
-        'app_enhanced.py',
+        'app.py',
         'tutoring_engine.py',
         'content_extractors.py',
         'openrouter_client.py',
@@ -118,7 +118,7 @@ def main():
     if deps_ok and env_ok and files_ok:
         print("✅ Everything is ready!")
         print("\nTo start the app, run:")
-        print("   streamlit run app_enhanced.py")
+        print("   streamlit run app.py")
         return 0
     else:
         print("❌ Some issues need to be fixed")
