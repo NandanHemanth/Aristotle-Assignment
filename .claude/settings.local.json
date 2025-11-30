@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test:*)",
+      "Bash(python verify_setup.py:*)",
+      "Bash(python -c:*)",
+      "Bash(python test_integration.py:*)",
+      "SlashCommand(/init)",
+      "Bash(python test_cost_tracking.py:*)",
+      "Bash(python test_conversation_caching.py:*)",
+      "Bash(python test_cache_performance.py:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

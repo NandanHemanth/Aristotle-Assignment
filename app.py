@@ -2,6 +2,10 @@ import streamlit as st
 from streamlit_lottie import st_lottie
 import requests
 
+# Import our tutoring system
+from tutoring_engine import TutoringEngine
+from utils import process_uploaded_file
+
 # Page configuration
 st.set_page_config(
     page_title="Tutoring App",
@@ -21,42 +25,125 @@ def load_lottie_url(url: str):
     except:
         return None
 
+# Initialize session state
+if 'engine' not in st.session_state:
+    st.session_state.engine = TutoringEngine()
+
+if 'setup_complete' not in st.session_state:
+    st.session_state.setup_complete = False
+
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+
+if 'problem_statement' not in st.session_state:
+    st.session_state.problem_statement = None
+
 # Sidebar
 with st.sidebar:
     st.title("📚 Sources")
     st.markdown("---")
-    
+
     # Source input methods
     st.subheader("Upload Source Material")
-    
+
     # File upload
     uploaded_file = st.file_uploader(
         "Upload a file",
-        type=["pdf", "html", "docx"],
-        help="Upload PDF, HTML, or DOCX files"
+        type=["pdf", "docx", "txt", "png", "jpg", "jpeg"],
+        help="Upload PDF, DOCX, text file, or image with your problem"
     )
-    
+
     if uploaded_file:
         st.success(f"✓ {uploaded_file.name} uploaded")
-    
+
     st.markdown("**OR**")
-    
-    # URL input
-    url_input = st.text_input(
-        "Paste a URL",
-        placeholder="https://example.com/article",
-        help="Enter a URL to extract content from"
+
+    # Manual text input
+    manual_text = st.text_area(
+        "Enter problem text",
+        placeholder="Paste your homework problem here...",
+        height=100
     )
-    
-    if url_input:
-        st.success(f"✓ URL added")
-    
+
+    # Process button
+    if st.button("🚀 Start Tutoring", type="primary", use_container_width=True):
+        if uploaded_file or manual_text:
+            with st.spinner("Processing your problem..."):
+                problem_text = None
+                image_data = None
+
+                try:
+                    if uploaded_file:
+                        # Determine file type
+                        file_type = None
+                        if uploaded_file.name.endswith('.pdf'):
+                            file_type = 'pdf'
+                        elif uploaded_file.name.endswith('.docx'):
+                            file_type = 'docx'
+                        elif uploaded_file.name.endswith('.txt'):
+                            file_type = 'text'
+                        elif uploaded_file.name.lower().endswith(('.png', '.jpg', '.jpeg')):
+                            file_type = 'image'
+
+                        # Process file
+                        problem_text, image_data, method = process_uploaded_file(uploaded_file, file_type)
+
+                        # If image, use vision model
+                        if image_data:
+                            problem_text = st.session_state.engine.process_problem_image(image_data)
+
+                    elif manual_text:
+                        problem_text = manual_text
+
+                    if problem_text and not problem_text.startswith("Error"):
+                        # Store problem
+                        st.session_state.problem_statement = problem_text
+
+                        # Generate reference solution
+                        solution, gen_time = st.session_state.engine.generate_reference_solution(problem_text)
+
+                        if not solution.startswith("Error"):
+                            st.session_state.setup_complete = True
+                            st.session_state.messages = []
+                            st.success(f"✅ Ready! Setup took {gen_time:.1f}s")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {solution}")
+                    else:
+                        st.error(f"❌ {problem_text}")
+
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        else:
+            st.warning("⚠️ Please upload a file or enter text!")
+
+    # Reset button
+    if st.session_state.setup_complete:
+        if st.button("🔄 New Problem", use_container_width=True):
+            st.session_state.engine.reset()
+            st.session_state.setup_complete = False
+            st.session_state.messages = []
+            st.session_state.problem_statement = None
+            st.rerun()
+
     st.markdown("---")
-    
+
+    # Show metrics if active
+    if st.session_state.setup_complete:
+        metrics = st.session_state.engine.get_metrics()
+        st.markdown("### 📊 Metrics")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Messages", len(st.session_state.messages) // 2)
+        with col2:
+            st.metric("Cost", f"${metrics['total_cost']:.4f}")
+
+    st.markdown("---")
+
     # Lottie animation
     lottie_url = "https://lottie.host/eb688d7a-a2ed-47de-915c-a06c0908678b/bNuqYqecqk.json"
     lottie_animation = load_lottie_url(lottie_url)
-    
+
     if lottie_animation:
         st_lottie(lottie_animation, height=150, key="sidebar_animation")
 
@@ -66,27 +153,77 @@ chat_col, studio_col = st.columns([2, 1])
 # Chat Section (Left - 2/3 width)
 with chat_col:
     st.header("💬 Chat")
-    
-    # Chat messages container
+
+    # Chat messages container (scrollable)
     chat_container = st.container(height=500)
     with chat_container:
-        if not uploaded_file and not url_input:
-            st.info("📤 Add a source to get started\n\nUpload a source file or paste a URL in the sidebar.")
+        if not st.session_state.setup_complete:
+            st.info("📤 Add a source to get started\n\nUpload a source file or paste text in the sidebar, then click 'Start Tutoring'.")
         else:
-            st.write("Chat interface will appear here...")
-    
+            # Show welcome message if no messages
+            if len(st.session_state.messages) == 0:
+                with st.chat_message("assistant"):
+                    st.markdown("""
+                    👋 Hello! I'm Aristotle, your AI tutor. I've reviewed your problem and I'm ready to help.
+
+                    **Important:** I won't give you the answer directly. I'll guide you with questions to help you learn.
+
+                    **Get started by:**
+                    - Telling me what you understand about the problem
+                    - Sharing any work you've done
+                    - Asking about concepts you're unsure about
+
+                    What would you like to explore first?
+                    """)
+
+            # Display all messages
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+
     # Chat input at the bottom
-    user_input = st.chat_input("Upload a source to get started")
+    if st.session_state.setup_complete:
+        user_input = st.chat_input("Ask a question or share your work...")
+
+        if user_input:
+            # Add user message
+            st.session_state.messages.append({
+                "role": "user",
+                "content": user_input
+            })
+
+            # Get tutor response with streaming
+            full_response = ""
+            try:
+                for chunk in st.session_state.engine.chat(user_input, stream=True):
+                    full_response += chunk
+
+                # Add assistant response
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": full_response
+                })
+
+            except Exception as e:
+                error_msg = f"❌ Error: {str(e)}"
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": error_msg
+                })
+
+            st.rerun()
+    else:
+        st.chat_input("Upload a source to get started", disabled=True)
 
 # Studio Section (Right - 1/3 width)
 with studio_col:
     st.header("🎨 Studio")
-    
+
     # Studio options
     st.markdown("### Tools")
-    
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
         if st.button("🎵 Audio Overview", use_container_width=True):
             st.info("Audio Overview")
@@ -94,7 +231,7 @@ with studio_col:
             st.info("Mind Map")
         if st.button("📊 Infographic", use_container_width=True):
             st.info("Infographic")
-    
+
     with col2:
         if st.button("🎥 Video Overview", use_container_width=True):
             st.info("Video Overview")
@@ -104,12 +241,20 @@ with studio_col:
             st.info("Quiz")
         if st.button("🎯 Slide deck", use_container_width=True):
             st.info("Slide deck")
-    
+
     st.markdown("---")
-    
+
     # Studio output area
     st.markdown("### Output")
-    st.info("✨ Studio output will be saved here.\n\nAfter adding sources, click to add Audio Overview, study guide, mind map and more!")
-    
+
+    if st.session_state.setup_complete:
+        # Show current problem
+        with st.expander("📋 Current Problem", expanded=False):
+            st.markdown(st.session_state.problem_statement)
+
+        st.info("✨ Studio features coming soon!\n\nFocus on the chat to work through your problem with Aristotle.")
+    else:
+        st.info("✨ Studio output will be saved here.\n\nAfter adding sources, click to add Audio Overview, study guide, mind map and more!")
+
     if st.button("📝 Add note", use_container_width=True):
         st.success("Note added!")

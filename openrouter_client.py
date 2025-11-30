@@ -144,10 +144,16 @@ class OpenRouterClient:
         self, system_prompt: str, conversation_history: List[Dict]
     ) -> List[Dict]:
         """
-        Create messages with caching enabled for the system prompt.
+        Create messages with caching enabled for both system prompt AND conversation history.
         Based on BLUEPRINT.md: caching reduces latency by up to 85% for long prompts.
 
-        Structure: Static content (system prompt) first, then variable content (conversation).
+        Anthropic's prompt caching supports up to 4 cache breakpoints:
+        1. System prompt (always cached - static)
+        2. Conversation history (cached incrementally for faster follow-ups)
+
+        This enables faster responses for follow-up questions since the previous
+        conversation context is already cached and doesn't need to be reprocessed.
+
         Cache reads are charged at just 10% of input pricing with Claude models.
 
         Args:
@@ -160,7 +166,7 @@ class OpenRouterClient:
         if not ENABLE_CACHING:
             return [{"role": "system", "content": system_prompt}] + conversation_history
 
-        # For Anthropic models, use cache_control
+        # Cache the system prompt (first cache breakpoint)
         messages = [
             {
                 "role": "system",
@@ -174,7 +180,56 @@ class OpenRouterClient:
             }
         ]
 
-        messages.extend(conversation_history)
+        # Add conversation history with caching enabled
+        # Strategy: Cache up to the last ASSISTANT response
+        # This ensures follow-up questions benefit from cached previous context
+        if len(conversation_history) > 0:
+            # Find the last assistant message index
+            last_assistant_idx = -1
+            for i in range(len(conversation_history) - 1, -1, -1):
+                if conversation_history[i].get("role") == "assistant":
+                    last_assistant_idx = i
+                    break
+
+            # Cache up to last assistant response, or last user message if no assistant yet
+            cache_up_to_idx = last_assistant_idx if last_assistant_idx >= 0 else len(conversation_history) - 1
+
+            # Add messages before cache breakpoint (no caching)
+            for i in range(cache_up_to_idx):
+                messages.append(conversation_history[i])
+
+            # Add the message at cache breakpoint WITH cache_control
+            if cache_up_to_idx >= 0:
+                msg_to_cache = conversation_history[cache_up_to_idx]
+
+                # Convert to cacheable format
+                if isinstance(msg_to_cache.get("content"), str):
+                    cached_msg = {
+                        "role": msg_to_cache["role"],
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": msg_to_cache["content"],
+                                "cache_control": {"type": "ephemeral"},
+                            }
+                        ],
+                    }
+                else:
+                    # Already in array format, add cache_control to last item
+                    cached_msg = msg_to_cache.copy()
+                    if isinstance(cached_msg["content"], list) and len(cached_msg["content"]) > 0:
+                        cached_msg["content"] = cached_msg["content"].copy()
+                        cached_msg["content"][-1] = {
+                            **cached_msg["content"][-1],
+                            "cache_control": {"type": "ephemeral"},
+                        }
+
+                messages.append(cached_msg)
+
+            # Add remaining messages after cache breakpoint (no caching on new messages)
+            for i in range(cache_up_to_idx + 1, len(conversation_history)):
+                messages.append(conversation_history[i])
+
         return messages
 
     def estimate_cost(

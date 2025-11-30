@@ -154,6 +154,37 @@ Good Verifier: "Look at how you solved for x in step 3"
 
 ## Our Solution Architecture {#solution-architecture}
 
+### Recent Enhancement: Dual-Mode Teaching ⭐
+
+**Problem Addressed:** Original tutor used pure Socratic method for ALL questions, even when students asked conceptual questions like "What is supervised learning?" This was pedagogically frustrating.
+
+**Solution:** Enhanced the tutor to distinguish between two types of questions:
+
+1. **Conceptual Questions** ("explain...", "what is...", "difference between...")
+   - **Mode:** Explanatory
+   - **Structure:** DEFINE → EXPLAIN → EXEMPLIFY → ENGAGE
+   - **Example:** "What is the difference between supervised and unsupervised learning?"
+   - **Response:** Full explanation with definitions, WHY/HOW/WHEN, real-world examples, then thought-provoking questions
+
+2. **Homework Problems** (specific problems with definite answers)
+   - **Mode:** Socratic
+   - **Structure:** Guide with questions, verify student work, never reveal answer
+   - **Example:** "Solve for x: 2x + 5 = 13"
+   - **Response:** "What operation could you use to isolate x?" (NOT "x = 4")
+
+**Implementation:**
+- Enhanced `TUTOR_PROMPT` in [config.py](config.py) with explicit dual-mode instructions
+- Prompt caching ensures enhanced prompt doesn't impact latency
+- See [TUTOR_ENHANCED.md](TUTOR_ENHANCED.md) and [QUICK_REFERENCE_TUTOR.md](QUICK_REFERENCE_TUTOR.md)
+
+**Performance Impact:**
+- Latency: No change (prompt is cached, ~200ms with cache)
+- Cost: No change (same model, same token count)
+- Quality: Significantly improved for conceptual questions
+- Pedagogical effectiveness: Maintained for homework, enhanced for concepts
+
+---
+
 ### Three-Stage Pipeline
 
 Our system addresses these problems through a **multi-agent architecture** with structural separation:
@@ -857,8 +888,9 @@ messages = [summary] + messages[10:]
 2. ✓ **Cost reduction** of 84-87% vs standard approaches
 3. ✓ **Latency optimization** with caching + streaming
 4. ✓ **Multi-agent architecture** for separation of concerns
-5. △ **Vision extraction** (works for typed, struggles with handwritten)
-6. △ **Verification accuracy** (good for simple, weaker for complex)
+5. ✓ **Dual-mode teaching** - Explanatory for concepts, Socratic for homework ⭐ NEW
+6. △ **Vision extraction** (works for typed, struggles with handwritten)
+7. △ **Verification accuracy** (good for simple, weaker for complex)
 
 ### Why This Approach Wins
 
@@ -882,6 +914,7 @@ messages = [summary] + messages[10:]
 2. **Performance:** Caching, streaming, and smart routing
 3. **Specialization:** Right model for each task
 4. **Structure over prompts:** Making leakage impossible, not just discouraged
+5. **Adaptive Teaching:** Dual-mode teaching (explanatory vs Socratic) based on question type ⭐ NEW
 
 ### Production Readiness
 

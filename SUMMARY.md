@@ -132,21 +132,28 @@ SAVINGS:
 
 ```
 Aristotle-Assignment/
-├── app.py                      # Original Streamlit UI
-├── app_enhanced.py             # Enhanced UI with YouTube/URL support ⭐
-├── config.py                   # Configuration (models, prompts, API)
+├── app.py                      # Main Streamlit UI (fully integrated) ⭐
+├── config.py                   # Configuration (models, prompts, API) ⭐
+├── tutoring_engine.py          # Core multi-agent tutoring logic ⭐
 ├── openrouter_client.py        # OpenRouter API wrapper with streaming/caching
-├── tutoring_engine.py          # Core multi-agent tutoring logic
 ├── utils.py                    # File processing utilities
-├── content_extractors.py       # YouTube & URL extraction ⭐
+├── content_extractors.py       # YouTube & URL extraction
 ├── requirements.txt            # Dependencies
-├── .env.example               # Environment template
+├── .env                        # Environment variables (not committed)
 │
 ├── BLUEPRINT.md               # Research foundation (provided)
 ├── README.md                  # Setup and usage guide
 ├── ANALYSIS.md                # Comprehensive technical analysis ⭐
 ├── SUMMARY.md                 # This file - quick overview
-├── EXPERIMENTS_SUMMARY.md     # Step 2 & 3 findings ⭐
+├── EXPERIMENTS_SUMMARY.md     # Step 2 & 3 findings
+│
+├── TUTOR_ENHANCED.md          # Enhanced tutor documentation ⭐
+├── QUICK_REFERENCE_TUTOR.md   # Before/after examples ⭐
+├── SETUP_COMPLETE.md          # Integration guide ⭐
+│
+├── test_enhanced_tutor.py     # Test dual-mode teaching
+├── test_simple.py             # Simple integration test
+├── verify_setup.py            # Dependency verification
 │
 └── experiments/               # Step 2 experimental evidence
     ├── experiment_1_solution_leakage.json
@@ -156,10 +163,72 @@ Aristotle-Assignment/
     ├── experiment_5_context_window_overflow.json
     └── experiment_6_step3_focus.json
 
-⭐ = Major deliverables
+⭐ = Major deliverables / Recently enhanced
 ```
 
 ## 🎓 How It Works
+
+### Enhanced Tutor: Dual-Mode Teaching ⭐ NEW
+
+The tutor now **intelligently adapts** its teaching style based on question type:
+
+**1. CONCEPTUAL QUESTIONS** (Explanatory Mode)
+When you ask "What is the difference between supervised and unsupervised learning?":
+
+```
+Structure:
+1. DEFINE - Clear, precise definitions
+2. EXPLAIN - WHY it exists, HOW it works, WHEN to use it
+3. EXEMPLIFY - 2-3 concrete, real-world examples
+4. ENGAGE - Thought-provoking questions to deepen understanding
+
+Example Response:
+"Great question! Let me explain...
+
+DEFINITIONS:
+- Supervised Learning: Algorithm learns from labeled data...
+- Unsupervised Learning: Algorithm finds patterns without labels...
+
+WHY THIS DISTINCTION EXISTS:
+[Explains the fundamental reason]
+
+REAL-WORLD EXAMPLES:
+1. Email spam detection (supervised)
+2. Customer segmentation (unsupervised)
+3. Medical diagnosis (supervised)
+
+THINK ABOUT THIS:
+- Can you think of a case where you'd use both approaches?"
+```
+
+**2. HOMEWORK PROBLEMS** (Socratic Mode)
+When you upload "Solve for x: 2x + 5 = 13":
+
+```
+Approach:
+1. Asks guiding questions
+2. NEVER reveals the answer
+3. Verifies your work via verification layer
+4. Redirects errors without giving away solution
+
+Example Response:
+"I won't give you the answer, but let me guide you!
+
+What's the first operation you could use to start isolating x?
+What's currently 'attached' to the x term?"
+```
+
+**Why This Matters:**
+- Conceptual questions: Students WANT to learn concepts → provide full explanations
+- Homework problems: Students NEED to discover solutions → use Socratic method
+- Tutor automatically detects which mode to use based on question type
+
+**Implementation:**
+- Enhanced prompt in [config.py](config.py) - `TUTOR_PROMPT`
+- Prompt caching ensures fast responses (~200ms with cache)
+- See [TUTOR_ENHANCED.md](TUTOR_ENHANCED.md) for complete documentation
+
+---
 
 ### Multi-Modal Input Support
 

@@ -293,6 +293,7 @@ Your role is to guide them to solve it themselves through questions and hints.
         Yields response chunks as they arrive.
         """
         assistant_message = ""
+        usage_info = None
 
         try:
             stream = client.chat_completion(
@@ -307,10 +308,33 @@ Your role is to guide them to solve it themselves through questions and hints.
                         assistant_message += content
                         yield content
 
+                # Capture usage info from final chunk
+                if "usage" in chunk:
+                    usage_info = chunk["usage"]
+
             # Save complete message to history
             self.conversation_history.append(
                 {"role": "assistant", "content": assistant_message}
             )
+
+            # Track metrics if usage info was provided
+            if usage_info:
+                self.metrics["total_tutor_tokens"] += usage_info.get("completion_tokens", 0)
+
+                # Get cached tokens (try multiple locations)
+                cached_tokens = 0
+                if "cached_tokens" in usage_info:
+                    cached_tokens = usage_info.get("cached_tokens", 0)
+                elif "prompt_tokens_details" in usage_info:
+                    cached_tokens = usage_info.get("prompt_tokens_details", {}).get("cached_tokens", 0)
+
+                cost = client.estimate_cost(
+                    MODELS["tutor"],
+                    usage_info.get("prompt_tokens", 0),
+                    usage_info.get("completion_tokens", 0),
+                    cached_tokens,
+                )
+                self.metrics["total_cost"] += cost
 
         except Exception as e:
             error_msg = f"Error in chat: {str(e)}"
