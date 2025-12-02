@@ -245,6 +245,7 @@ class OpenRouterClient:
         """
         pricing = {
             "deepseek/deepseek-r1": (0.20, 4.50),
+            "anthropic/claude-sonnet-4.5": (3.0, 15.0),  # Faster solution generation
             "anthropic/claude-haiku-4.5": (1.0, 5.0),
             "openai/gpt-4o-mini": (0.15, 0.60),
             "gemini/gemini-2.0-flash": (0.10, 0.40),

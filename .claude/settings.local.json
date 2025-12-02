@@ -11,7 +11,13 @@
       "Bash(python test_cache_performance.py:*)",
       "Bash(pip install:*)",
       "Bash(python -m py_compile:*)",
-      "Bash(python test_studio_features.py:*)"
+      "Bash(python test_studio_features.py:*)",
+      "Bash(python test_enhanced_studio.py:*)",
+      "Bash(pip show:*)",
+      "Bash(python test_youtube_extraction.py:*)",
+      "Bash(python test_youtube_live.py:*)",
+      "Bash(python:*)",
+      "Bash(del EXPERIMENTS_SUMMARY.md PROJECT_OVERVIEW.md SETUP_COMPLETE.md TUTOR_ENHANCED.md QUICK_REFERENCE_TUTOR.md SUMMARY.md UPDATES_SUMMARY.md PERFORMANCE_ANALYSIS.md CACHING_AND_PERFORMANCE_SUMMARY.md STUDIO_FEATURES_GUIDE.md ENHANCED_STUDIO_GUIDE.md YOUTUBE_FIX_GUIDE.md QUICK_TEST.md PERFORMANCE_OPTIMIZATION_SUMMARY.md)"
     ],
     "deny": [],
     "ask": []

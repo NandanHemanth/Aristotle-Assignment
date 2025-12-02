@@ -9,6 +9,7 @@ from io import BytesIO
 from tutoring_engine import TutoringEngine
 from utils import process_uploaded_file
 import studio_features
+from content_extractors import extract_content, detect_content_type
 
 # Page configuration
 st.set_page_config(
@@ -103,7 +104,24 @@ with st.sidebar:
                             problem_text = st.session_state.engine.process_problem_image(image_data)
 
                     elif manual_text:
-                        problem_text = manual_text
+                        # Detect if it's a URL (YouTube or web URL)
+                        content_type = detect_content_type(manual_text)
+
+                        if content_type in ["youtube", "url"]:
+                            st.info(f"📥 Detected {content_type.upper()} link, extracting content...")
+                            # Extract content from URL
+                            extracted_content, metadata, method = extract_content(manual_text, content_type)
+
+                            # Check for errors
+                            if metadata.get("error"):
+                                st.error(f"❌ {extracted_content}")
+                                problem_text = None
+                            else:
+                                problem_text = extracted_content
+                                st.success(f"✅ Extracted {metadata.get('word_count', 0)} words from {content_type}")
+                        else:
+                            # Plain text
+                            problem_text = manual_text
 
                     if problem_text and not problem_text.startswith("Error"):
                         # Store problem

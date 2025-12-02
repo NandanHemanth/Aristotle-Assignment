@@ -1,15 +1,36 @@
 """
 Studio Features Module
 Implements all Studio button functionality with pop-ups using different OpenRouter models.
+Enhanced with actual file generation: MP3 audio, MP4 video, and PDF slides.
 """
 
 import streamlit as st
 from openrouter_client import OpenRouterClient
 from config import OPENROUTER_API_KEY
 import json
+import os
+import tempfile
+from pathlib import Path
+from datetime import datetime
+
+# Media generation libraries
+from gtts import gTTS
+from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
+from PIL import Image, ImageDraw, ImageFont
+import markdown
+import re
 
 # Initialize OpenRouter client
 client = OpenRouterClient(api_key=OPENROUTER_API_KEY)
+
+# Create output directory for generated files
+OUTPUT_DIR = Path("studio_outputs")
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Studio-specific models (different from tutoring models)
 STUDIO_MODELS = {
@@ -25,11 +46,12 @@ STUDIO_MODELS = {
 
 @st.dialog("🎵 Audio Overview", width="large")
 def audio_overview_modal(problem_statement: str):
-    """Generate a short audio script summary of the problem."""
-    st.markdown("### Generating Audio Script...")
+    """Generate an MP3 audio file summary of the problem."""
+    st.markdown("### Generating Audio Overview...")
 
-    with st.spinner("Creating audio overview..."):
+    with st.spinner("Creating audio script and MP3..."):
         try:
+            # Step 1: Generate script
             prompt = f"""Create a short, engaging audio script (30-60 seconds when read aloud) that explains this problem:
 
 {problem_statement}
@@ -40,7 +62,7 @@ The script should:
 3. Mention what approach would be needed (without giving the answer)
 4. Be written in a conversational, easy-to-understand tone
 
-Format as a script ready to be read aloud."""
+Format as plain text ready to be read aloud (no markdown, no special formatting)."""
 
             messages = [{"role": "user", "content": prompt}]
 
@@ -53,34 +75,54 @@ Format as a script ready to be read aloud."""
 
             script = response["choices"][0]["message"]["content"]
 
-            st.success("✅ Audio script generated!")
-            st.markdown("### 🎙️ Audio Script")
-            st.text_area("Script", script, height=300, key="audio_script")
+            # Clean script for TTS (remove markdown symbols if any)
+            clean_script = re.sub(r'[#*`]', '', script)
 
-            st.info("💡 **Tip:** Copy this script and use a text-to-speech tool to create an audio file.")
+            # Step 2: Generate MP3 using gTTS
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            audio_filename = OUTPUT_DIR / f"audio_overview_{timestamp}.mp3"
+
+            tts = gTTS(text=clean_script, lang='en', slow=False)
+            tts.save(str(audio_filename))
+
+            st.success("✅ Audio MP3 generated!")
+
+            # Display script
+            st.markdown("### 📝 Script")
+            st.text_area("Audio Script", script, height=200, key="audio_script")
+
+            # Audio player
+            st.markdown("### 🎧 Play Audio")
+            with open(audio_filename, 'rb') as audio_file:
+                audio_bytes = audio_file.read()
+                st.audio(audio_bytes, format='audio/mp3')
+
+            # Download button
+            st.download_button(
+                label="⬇️ Download MP3",
+                data=audio_bytes,
+                file_name=f"audio_overview_{timestamp}.mp3",
+                mime="audio/mp3"
+            )
 
         except Exception as e:
-            st.error(f"❌ Error generating audio script: {str(e)}")
+            st.error(f"❌ Error generating audio: {str(e)}")
 
 
 @st.dialog("🎥 Video Overview", width="large")
 def video_overview_modal(problem_statement: str):
-    """Generate a basic video storyboard."""
-    st.markdown("### Generating Video Storyboard...")
+    """Generate an actual MP4 video with narration."""
+    st.markdown("### Generating Video Overview...")
 
-    with st.spinner("Creating video overview..."):
+    with st.spinner("Creating video with narration... (this may take 30-60 seconds)"):
         try:
-            prompt = f"""Create a simple video storyboard for explaining this problem:
+            # Step 1: Generate script for video
+            prompt = f"""Create a concise video script (30-45 seconds) explaining this problem:
 
 {problem_statement}
 
-Generate a 4-6 scene storyboard. For each scene, provide:
-1. Scene number
-2. Visual description (what should be shown)
-3. Narration text (what should be said)
-4. Duration (in seconds)
-
-Format as a clear storyboard that could be used to create an educational video."""
+Write a clear, educational narration script. Format as plain text (no special formatting).
+Focus on explaining the problem and key concepts without revealing the answer."""
 
             messages = [{"role": "user", "content": prompt}]
 
@@ -91,16 +133,91 @@ Format as a clear storyboard that could be used to create an educational video."
                 temperature=0.7
             )
 
-            storyboard = response["choices"][0]["message"]["content"]
+            script = response["choices"][0]["message"]["content"]
+            clean_script = re.sub(r'[#*`]', '', script)
 
-            st.success("✅ Video storyboard generated!")
-            st.markdown("### 🎬 Video Storyboard")
-            st.markdown(storyboard)
+            # Step 2: Generate audio narration
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            audio_path = OUTPUT_DIR / f"video_audio_{timestamp}.mp3"
 
-            st.info("💡 **Tip:** Use this storyboard with video editing software or animation tools.")
+            tts = gTTS(text=clean_script, lang='en', slow=False)
+            tts.save(str(audio_path))
+
+            # Step 3: Create simple video frames with text
+            video_path = OUTPUT_DIR / f"video_overview_{timestamp}.mp4"
+
+            # Create a background image with problem text
+            img_width, img_height = 1280, 720
+            background = Image.new('RGB', (img_width, img_height), color=(30, 40, 60))
+            draw = ImageDraw.Draw(background)
+
+            # Add title
+            title_text = "Problem Overview"
+            try:
+                # Try to use a nicer font
+                font_title = ImageFont.truetype("arial.ttf", 60)
+                font_body = ImageFont.truetype("arial.ttf", 32)
+            except:
+                # Fallback to default font
+                font_title = ImageFont.load_default()
+                font_body = ImageFont.load_default()
+
+            # Draw title
+            draw.text((640, 100), title_text, fill=(255, 255, 255), font=font_title, anchor="mm")
+
+            # Draw problem statement (wrapped)
+            problem_lines = problem_statement[:200].split('\n')[:3]  # First 200 chars, max 3 lines
+            y_position = 300
+            for line in problem_lines:
+                draw.text((640, y_position), line[:80], fill=(200, 220, 255), font=font_body, anchor="mm")
+                y_position += 50
+
+            # Save background image
+            img_path = OUTPUT_DIR / f"video_frame_{timestamp}.png"
+            background.save(str(img_path))
+
+            # Step 4: Create video with moviepy
+            audio_clip = AudioFileClip(str(audio_path))
+            duration = audio_clip.duration
+
+            video_clip = ImageClip(str(img_path)).set_duration(duration)
+            final_video = video_clip.set_audio(audio_clip)
+
+            final_video.write_videofile(
+                str(video_path),
+                fps=24,
+                codec='libx264',
+                audio_codec='aac',
+                verbose=False,
+                logger=None
+            )
+
+            # Cleanup temporary files
+            audio_clip.close()
+            final_video.close()
+
+            st.success("✅ Video MP4 generated!")
+
+            # Display script
+            st.markdown("### 📝 Video Script")
+            st.text_area("Narration", script, height=150, key="video_script")
+
+            # Video player
+            st.markdown("### 🎬 Watch Video")
+            with open(video_path, 'rb') as video_file:
+                video_bytes = video_file.read()
+                st.video(video_bytes)
+
+            # Download button
+            st.download_button(
+                label="⬇️ Download MP4",
+                data=video_bytes,
+                file_name=f"video_overview_{timestamp}.mp4",
+                mime="video/mp4"
+            )
 
         except Exception as e:
-            st.error(f"❌ Error generating video storyboard: {str(e)}")
+            st.error(f"❌ Error generating video: {str(e)}")
 
 
 @st.dialog("🧠 Mind Map", width="large")
@@ -275,11 +392,12 @@ Format as a structured design document that could be given to a graphic designer
 
 @st.dialog("🎯 Slide Deck", width="large")
 def slidedeck_modal(problem_statement: str):
-    """Generate basic presentation slides."""
-    st.markdown("### Generating Slide Deck...")
+    """Generate PDF presentation slides."""
+    st.markdown("### Generating Slide Deck PDF...")
 
-    with st.spinner("Creating presentation slides..."):
+    with st.spinner("Creating presentation slides and PDF..."):
         try:
+            # Step 1: Generate slide content
             prompt = f"""Create a slide deck presentation about this problem:
 
 {problem_statement}
@@ -292,12 +410,11 @@ Generate 6-8 slides with:
 5. Practice/Summary slide
 
 For each slide, provide:
-- Slide number and title
+- Slide number and title (use ## for slide titles)
 - Main content (bullet points, max 5 per slide)
-- Speaker notes (what to say)
 
-Format in markdown with clear slide separators (---).
-Keep content concise and visual-friendly."""
+Format in markdown with slide separators (---).
+Keep content concise and slide-friendly."""
 
             messages = [{"role": "user", "content": prompt}]
 
@@ -308,13 +425,103 @@ Keep content concise and visual-friendly."""
                 temperature=0.6
             )
 
-            slides = response["choices"][0]["message"]["content"]
+            slides_content = response["choices"][0]["message"]["content"]
 
-            st.success("✅ Slide deck generated!")
-            st.markdown("### 📊 Presentation Slides")
-            st.markdown(slides)
+            # Step 2: Parse slides and create PDF
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            pdf_path = OUTPUT_DIR / f"slides_{timestamp}.pdf"
 
-            st.info("💡 **Tip:** Copy these slides to PowerPoint, Google Slides, or Markdown presentation tools.")
+            # Create PDF
+            doc = SimpleDocTemplate(
+                str(pdf_path),
+                pagesize=letter,
+                rightMargin=72,
+                leftMargin=72,
+                topMargin=72,
+                bottomMargin=18
+            )
+
+            # Define styles
+            styles = getSampleStyleSheet()
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Title'],
+                fontSize=24,
+                textColor='#1a1a1a',
+                spaceAfter=30,
+                alignment=TA_CENTER
+            )
+            heading_style = ParagraphStyle(
+                'CustomHeading',
+                parent=styles['Heading1'],
+                fontSize=18,
+                textColor='#2c3e50',
+                spaceAfter=12,
+                alignment=TA_CENTER
+            )
+            body_style = ParagraphStyle(
+                'CustomBody',
+                parent=styles['BodyText'],
+                fontSize=12,
+                textColor='#333333',
+                spaceAfter=8,
+                alignment=TA_LEFT
+            )
+
+            # Build PDF content
+            story = []
+
+            # Split slides by separator
+            slide_sections = slides_content.split('---')
+
+            for i, slide in enumerate(slide_sections):
+                if slide.strip():
+                    # Parse slide content
+                    lines = slide.strip().split('\n')
+
+                    for line in lines:
+                        line = line.strip()
+                        if line.startswith('##'):
+                            # Slide title
+                            title = line.replace('##', '').strip()
+                            if i == 0:
+                                story.append(Paragraph(title, title_style))
+                            else:
+                                story.append(Paragraph(title, heading_style))
+                            story.append(Spacer(1, 0.2*inch))
+                        elif line.startswith('-') or line.startswith('*'):
+                            # Bullet point
+                            content = line.lstrip('-*').strip()
+                            story.append(Paragraph(f"• {content}", body_style))
+                        elif line and not line.startswith('#'):
+                            # Regular text
+                            story.append(Paragraph(line, body_style))
+
+                    # Page break between slides
+                    if i < len(slide_sections) - 1:
+                        story.append(PageBreak())
+
+            # Build PDF
+            doc.build(story)
+
+            st.success("✅ Slide deck PDF generated!")
+
+            # Display markdown preview
+            st.markdown("### 📄 Slides Preview")
+            st.markdown(slides_content)
+
+            # PDF download
+            st.markdown("### 📥 Download PDF")
+            with open(pdf_path, 'rb') as pdf_file:
+                pdf_bytes = pdf_file.read()
+                st.download_button(
+                    label="⬇️ Download Slide Deck PDF",
+                    data=pdf_bytes,
+                    file_name=f"slides_{timestamp}.pdf",
+                    mime="application/pdf"
+                )
+
+            st.info("💡 **Tip:** Open the PDF in any PDF reader or import into PowerPoint/Google Slides.")
 
         except Exception as e:
             st.error(f"❌ Error generating slide deck: {str(e)}")

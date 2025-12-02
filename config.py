@@ -7,10 +7,11 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Model Configuration based on BLUEPRINT.md research
+# Model Configuration - Optimized for Speed & Quality
 MODELS = {
-    # For generating reference solutions - best reasoning for math/science
-    "solution_generator": "deepseek/deepseek-r1",  # $0.20/$4.50 per million tokens
+    # For generating reference solutions - FAST & ACCURATE
+    # Switched from DeepSeek-R1 to Claude Sonnet 4.5 for 5-10x faster initial processing
+    "solution_generator": "anthropic/claude-sonnet-4.5:nitro",  # $3/$15 per million tokens, MUCH FASTER
 
     # For student-facing tutoring - fast, good instruction following
     "tutor": "anthropic/claude-haiku-4.5:nitro",  # $1/$5 with :nitro for fastest provider
