@@ -8,6 +8,7 @@ from io import BytesIO
 # Import our tutoring system
 from tutoring_engine import TutoringEngine
 from utils import process_uploaded_file
+import studio_features
 
 # Page configuration
 st.set_page_config(
@@ -282,21 +283,42 @@ with studio_col:
 
     with col1:
         if st.button("🎵 Audio Overview", use_container_width=True):
-            st.info("Audio Overview")
+            if studio_features.studio_feature_available(st.session_state):
+                studio_features.audio_overview_modal(st.session_state.problem_statement)
+            else:
+                st.warning("⚠️ Please start tutoring first!")
         if st.button("🧠 Mind Map", use_container_width=True):
-            st.info("Mind Map")
+            if studio_features.studio_feature_available(st.session_state):
+                studio_features.mindmap_modal(st.session_state.problem_statement)
+            else:
+                st.warning("⚠️ Please start tutoring first!")
         if st.button("📊 Infographic", use_container_width=True):
-            st.info("Infographic")
+            if studio_features.studio_feature_available(st.session_state):
+                studio_features.infographic_modal(st.session_state.problem_statement)
+            else:
+                st.warning("⚠️ Please start tutoring first!")
 
     with col2:
         if st.button("🎥 Video Overview", use_container_width=True):
-            st.info("Video Overview")
+            if studio_features.studio_feature_available(st.session_state):
+                studio_features.video_overview_modal(st.session_state.problem_statement)
+            else:
+                st.warning("⚠️ Please start tutoring first!")
         if st.button("📝 Reports", use_container_width=True):
-            st.info("Reports")
+            if studio_features.studio_feature_available(st.session_state):
+                studio_features.report_modal(st.session_state.problem_statement)
+            else:
+                st.warning("⚠️ Please start tutoring first!")
         if st.button("📑 Quiz", use_container_width=True):
-            st.info("Quiz")
+            if studio_features.studio_feature_available(st.session_state):
+                studio_features.quiz_modal(st.session_state.problem_statement)
+            else:
+                st.warning("⚠️ Please start tutoring first!")
         if st.button("🎯 Slide deck", use_container_width=True):
-            st.info("Slide deck")
+            if studio_features.studio_feature_available(st.session_state):
+                studio_features.slidedeck_modal(st.session_state.problem_statement)
+            else:
+                st.warning("⚠️ Please start tutoring first!")
 
     st.markdown("---")
 

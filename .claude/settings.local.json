@@ -10,7 +10,8 @@
       "Bash(python test_conversation_caching.py:*)",
       "Bash(python test_cache_performance.py:*)",
       "Bash(pip install:*)",
-      "Bash(python -m py_compile:*)"
+      "Bash(python -m py_compile:*)",
+      "Bash(python test_studio_features.py:*)"
     ],
     "deny": [],
     "ask": []

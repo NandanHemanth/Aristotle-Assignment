@@ -132,3 +132,15 @@ APP_DESCRIPTION = """An AI-powered Socratic tutor that helps you learn by guidin
 3. Engage in a conversation where the tutor guides you with questions, never giving away the answer
 
 This approach prevents "solution leakage" and helps you develop genuine understanding."""
+
+# Studio Features Configuration
+# Different models optimized for each studio feature type
+STUDIO_MODELS = {
+    "audio": "anthropic/claude-haiku-4.5:nitro",  # Fast script generation
+    "video": "openai/gpt-4o-mini",  # Storyboard generation
+    "mindmap": "openai/gpt-4o",  # Structured output for diagrams
+    "report": "deepseek/deepseek-r1",  # Detailed reasoning and comprehensive reports
+    "quiz": "anthropic/claude-sonnet-4.5",  # Better Q&A generation
+    "infographic": "openai/gpt-4o-mini",  # Data structuring for visuals
+    "slidedeck": "anthropic/claude-haiku-4.5:nitro",  # Markdown slides generation
+}
