@@ -1,6 +1,9 @@
 import streamlit as st
 from streamlit_lottie import st_lottie
+from streamlit_paste_button import paste_image_button
 import requests
+import base64
+from io import BytesIO
 
 # Import our tutoring system
 from tutoring_engine import TutoringEngine
@@ -37,6 +40,12 @@ if 'messages' not in st.session_state:
 
 if 'problem_statement' not in st.session_state:
     st.session_state.problem_statement = None
+
+if 'pasted_image' not in st.session_state:
+    st.session_state.pasted_image = None
+
+if 'pasted_image_text' not in st.session_state:
+    st.session_state.pasted_image_text = None
 
 # Sidebar
 with st.sidebar:
@@ -183,19 +192,62 @@ with chat_col:
 
     # Chat input at the bottom
     if st.session_state.setup_complete:
+        # Add paste image button above chat input
+        col1, col2 = st.columns([1, 6])
+        with col1:
+            paste_result = paste_image_button(
+                label="📋 Paste Image",
+                key="paste_btn",
+                errors="raise",
+            )
+
+        # Process pasted image
+        if paste_result.image_data is not None:
+            # Convert PIL image to base64
+            buffered = BytesIO()
+            paste_result.image_data.save(buffered, format="PNG")
+            img_bytes = buffered.getvalue()
+            img_base64 = base64.b64encode(img_bytes).decode()
+
+            # Store pasted image
+            st.session_state.pasted_image = img_base64
+
+            # Process with vision model - add data URI prefix
+            with st.spinner("Processing pasted image..."):
+                image_data_uri = f"data:image/png;base64,{img_base64}"
+                image_text = st.session_state.engine.process_problem_image(image_data_uri)
+                st.session_state.pasted_image_text = image_text
+                st.success("Image pasted! Add your question below.")
+
+        # Show pasted image preview if exists
+        if st.session_state.pasted_image:
+            with st.expander("📎 Pasted Image Context", expanded=True):
+                st.image(f"data:image/png;base64,{st.session_state.pasted_image}", width=300)
+                st.caption("Vision model extracted:")
+                st.info(st.session_state.pasted_image_text)
+                if st.button("❌ Clear Image"):
+                    st.session_state.pasted_image = None
+                    st.session_state.pasted_image_text = None
+                    st.rerun()
+
         user_input = st.chat_input("Ask a question or share your work...")
 
         if user_input:
-            # Add user message
+            # Prepare message content with image context if available
+            message_content = user_input
+            if st.session_state.pasted_image_text:
+                message_content = f"[Image Context: {st.session_state.pasted_image_text}]\n\n{user_input}"
+
+            # Add user message (display only the text, not the image context)
             st.session_state.messages.append({
                 "role": "user",
                 "content": user_input
             })
 
-            # Get tutor response with streaming
+            # Get tutor response with streaming (send full context including image)
             full_response = ""
             try:
-                for chunk in st.session_state.engine.chat(user_input, stream=True):
+                for chunk in st.session_state.engine.chat(message_content, stream=True):
                     full_response += chunk
 
                 # Add assistant response
@@ -203,6 +255,10 @@ with chat_col:
                     "role": "assistant",
                     "content": full_response
                 })
+
+                # Clear pasted image after sending
+                st.session_state.pasted_image = None
+                st.session_state.pasted_image_text = None
 
             except Exception as e:
                 error_msg = f"❌ Error: {str(e)}"

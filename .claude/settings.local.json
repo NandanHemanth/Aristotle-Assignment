@@ -8,7 +8,9 @@
       "SlashCommand(/init)",
       "Bash(python test_cost_tracking.py:*)",
       "Bash(python test_conversation_caching.py:*)",
-      "Bash(python test_cache_performance.py:*)"
+      "Bash(python test_cache_performance.py:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m py_compile:*)"
     ],
     "deny": [],
     "ask": []
