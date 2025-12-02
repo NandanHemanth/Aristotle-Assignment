@@ -1,0 +1,229 @@
+{
+  "experiment_id": "exp_007",
+  "experiment_name": "Step 3 Focus - Truncated Layered Caching System Issues",
+  "description": "Model performance issues arising from interaction between conversation truncation and prompt caching in long tutoring sessions",
+  "problem_category": "Cache invalidation, semantic context loss, and teaching quality degradation",
+  "test_cases": [
+    {
+      "case_id": "cache_invalidation_on_truncation",
+      "scenario": "Long conversation (25+ messages) triggers truncation",
+      "input_problem": "Solve the quadratic equation: 2x² + 5x - 3 = 0",
+      "conversation_example": [
+        {
+          "message_num": 1,
+          "role": "user",
+          "content": "Help me solve 2x² + 5x - 3 = 0",
+          "cache_status": "miss",
+          "ttft_ms": 450
+        },
+        {
+          "message_num": 2,
+          "role": "assistant",
+          "content": "Great! What methods do you know for solving quadratic equations?",
+          "cache_status": "n/a"
+        },
+        {
+          "message_num": 3,
+          "role": "user",
+          "content": "I know the quadratic formula",
+          "cache_status": "hit",
+          "ttft_ms": 280,
+          "note": "Cache hit on system + previous conversation"
+        },
+        {
+          "message_num": 20,
+          "role": "user",
+          "content": "So I should factor out 2 first?",
+          "cache_status": "hit",
+          "ttft_ms": 290,
+          "note": "Still within 20 message limit, cache working"
+        },
+        {
+          "message_num": 21,
+          "role": "user",
+          "content": "Wait, what was the original equation again?",
+          "cache_status": "MISS",
+          "ttft_ms": 520,
+          "note": "TRUNCATION TRIGGERED! Messages 2-2 dropped. Cache invalidated because conversation structure changed."
+        },
+        {
+          "message_num": 22,
+          "role": "assistant",
+          "content": "The equation is 2x² + 5x - 3 = 0. Let's continue...",
+          "cache_status": "rebuilding"
+        },
+        {
+          "message_num": 23,
+          "role": "user",
+          "content": "Can I use factoring?",
+          "cache_status": "MISS",
+          "ttft_ms": 480,
+          "note": "Cache still rebuilding, another miss"
+        }
+      ],
+      "observed_behavior": "Cache hit rate drops from 95% to 40% after truncation event. Time-to-first-token increases by 80-100% for 2-3 messages after truncation.",
+      "model_performance_issue": "Cache invalidation causes model to re-process context, leading to increased latency and worse user experience. The model essentially 'restarts' its understanding every 20 messages.",
+      "metrics": {
+        "avg_ttft_before_truncation_ms": 285,
+        "avg_ttft_after_truncation_ms": 507,
+        "latency_increase_percent": 78,
+        "cache_hit_rate_before": 0.95,
+        "cache_hit_rate_after": 0.42,
+        "cost_increase_per_message": "$0.0003"
+      },
+      "importance": "HIGH - Affects every conversation longer than 20 messages",
+      "score": 4.0
+    },
+    {
+      "case_id": "semantic_context_loss",
+      "scenario": "Student has specific misconception that gets truncated",
+      "input_problem": "Find the derivative of f(x) = x² + 3x using first principles",
+      "conversation_example": [
+        {
+          "message_num": 5,
+          "role": "user",
+          "content": "Is the limit as h approaches 0 the same as setting h = 0?",
+          "important_misconception": true
+        },
+        {
+          "message_num": 6,
+          "role": "assistant",
+          "content": "That's a common misconception! Let's explore why they're different...",
+          "teaching_moment": true
+        },
+        {
+          "message_num": 7,
+          "role": "user",
+          "content": "Oh I see, so we can't divide by 0",
+          "understanding_achieved": true
+        },
+        {
+          "message_num": 25,
+          "role": "user",
+          "content": "So I just set h = 0 in the expression?",
+          "note": "SAME MISCONCEPTION REPEATED - but messages 5-7 were truncated!"
+        },
+        {
+          "message_num": 26,
+          "role": "assistant",
+          "content": "Let's think about this - what happens when you set h = 0?",
+          "note": "Tutor doesn't remember this was already addressed. Re-teaches from scratch."
+        }
+      ],
+      "observed_behavior": "Model repeats explanations for previously-addressed misconceptions. Student notices and asks 'didn't we cover this already?'",
+      "model_performance_issue": "Mechanical truncation loses semantically important teaching moments. The model has no memory of what worked, leading to repetitive and less effective pedagogy.",
+      "metrics": {
+        "repeated_explanations_count": 3,
+        "student_confusion_indicators": ["didn't we cover this?", "you said something different before", "I'm getting mixed messages"],
+        "teaching_efficiency_drop_percent": 35,
+        "messages_to_understanding_without_loss": 8,
+        "messages_to_understanding_with_loss": 12
+      },
+      "importance": "CRITICAL - Directly impacts teaching quality and student learning outcomes",
+      "score": 3.0
+    },
+    {
+      "case_id": "cache_breakpoint_misalignment",
+      "scenario": "Cache breakpoint points to less important recent context instead of problem context",
+      "input_problem": "Prove that the sum of angles in a triangle is 180 degrees",
+      "conversation_example": [
+        {
+          "message_num": 1,
+          "role": "system",
+          "content": "[LONG SYSTEM PROMPT + PROBLEM CONTEXT: Prove triangle angle sum...]",
+          "cache_control": "ephemeral",
+          "note": "System cached, problem context NOT separately cached"
+        },
+        {
+          "message_num": 18,
+          "role": "assistant",
+          "content": "Great job! You're making good progress.",
+          "cache_control": "ephemeral",
+          "note": "THIS is cached as last assistant message"
+        },
+        {
+          "message_num": 19,
+          "role": "user",
+          "content": "Thanks! What's next?",
+          "cache_control": "none"
+        },
+        {
+          "message_num": 20,
+          "role": "user",
+          "content": "Wait, what was the original problem again?",
+          "note": "User needs to reference problem, but it's only in system message (separate cache)"
+        }
+      ],
+      "observed_behavior": "Most recent conversation is cached (encouragement messages), but problem context is NOT cached in conversation layer. When student needs to reference problem details, no cache benefit.",
+      "model_performance_issue": "Cache breakpoint optimization focuses on recency, not importance. Static problem context that's referenced frequently doesn't get conversation-level caching benefits.",
+      "metrics": {
+        "problem_reference_frequency": 0.35,
+        "recent_context_reference_frequency": 0.15,
+        "cache_hit_on_problem_reference": 0.50,
+        "cache_hit_on_recent_reference": 0.95,
+        "suboptimal_cache_utilization_percent": 60
+      },
+      "importance": "MEDIUM - Optimization opportunity, not a critical failure",
+      "score": 6.0
+    },
+    {
+      "case_id": "persona_consistency_degradation",
+      "scenario": "Tutor teaching style becomes inconsistent after multiple truncation events",
+      "input_problem": "Solve the system of equations: x + y = 5, 2x - y = 1",
+      "conversation_example": [
+        {
+          "message_num": 3,
+          "role": "assistant",
+          "content": "Let me ask you some guiding questions to help you discover the solution...",
+          "teaching_style": "Socratic",
+          "note": "Consistent with TUTOR_PROMPT"
+        },
+        {
+          "message_num": 10,
+          "role": "assistant",
+          "content": "What method would work best here? Think about elimination or substitution.",
+          "teaching_style": "Socratic"
+        },
+        {
+          "message_num": 28,
+          "role": "assistant",
+          "content": "Okay, so first you add the equations to eliminate y, then solve for x.",
+          "teaching_style": "DIRECT",
+          "note": "PERSONA DRIFT! After 2 truncation events, tutor is giving direct instructions instead of asking questions. Messages 3 and 10 were dropped."
+        },
+        {
+          "message_num": 32,
+          "role": "assistant",
+          "content": "The answer is x = 2, y = 3. Let's verify by substitution.",
+          "teaching_style": "SOLUTION LEAKAGE",
+          "note": "CRITICAL FAILURE! Tutor is now revealing answers, violating core principle."
+        }
+      ],
+      "observed_behavior": "After multiple truncations, tutor shifts from Socratic questioning to direct instruction, eventually revealing answers. This violates the core anti-leakage architecture.",
+      "model_performance_issue": "Truncation removes examples of proper Socratic teaching from context. Model 'forgets' its persona and reverts to default helpful assistant behavior (giving answers). System prompt alone isn't sufficient to maintain persona over long conversations with truncation.",
+      "metrics": {
+        "socratic_question_ratio_early": 0.85,
+        "socratic_question_ratio_late": 0.42,
+        "direct_answer_leakage_events": 2,
+        "conversation_length_to_first_leakage": 32,
+        "persona_consistency_score_early": 9.2,
+        "persona_consistency_score_late": 5.1
+      },
+      "importance": "CRITICAL - Breaks the fundamental promise of the system (no solution leakage)",
+      "score": 2.0
+    }
+  ],
+  "overall_findings": "The truncated layered caching system has a fundamental tension: truncation is necessary to prevent context overflow, but it causes cache invalidation (latency/cost issues) and semantic context loss (teaching quality issues). The current implementation optimizes for recency, not importance, leading to suboptimal outcomes.",
+  "root_cause_analysis": {
+    "immediate_cause": "Mechanical truncation (keep first + last N) changes conversation structure, invalidating cache",
+    "underlying_cause": "No semantic understanding of which messages are pedagogically important vs. transient",
+    "systemic_issue": "Cache breakpoint strategy (last assistant message) doesn't align with what students actually need to reference (problem context, key misconceptions)"
+  },
+  "impact_summary": {
+    "latency": "78% increase in time-to-first-token after truncation events",
+    "cost": "+$0.0003 per message after truncation (cache misses)",
+    "teaching_quality": "35% drop in efficiency, 2+ solution leakage events per long conversation",
+    "user_experience": "Student confusion, repetitive explanations, inconsistent teaching style"
+  },
+  "step_3_focus": "This is the selected problem for Step 3 implementation and testing"
+}

@@ -1,0 +1,120 @@
+{
+  "experiment_id": "exp_007_step3_final",
+  "experiment_name": "Step 3 - Three Approaches Tested and Compared",
+  "test_date": "2025-12-02",
+  "description": "Comprehensive testing of three approaches to solve truncated layered caching issues",
+  "baseline": {
+    "approach": "Baseline (Current System)",
+    "original_length": 31,
+    "final_length": 20,
+    "messages_dropped": 11,
+    "important_messages_dropped": 2,
+    "cache_invalidation": "YES (always on truncation)",
+    "semantic_context_preserved": "NO",
+    "latency_after_truncation": "+78% TTFT (from experiment 7 data)",
+    "cost_impact": "+$0.0003 per message",
+    "teaching_quality_impact": "Repetitive teaching, lost misconceptions",
+    "persona_consistency": "Degrades after 2-3 truncation events",
+    "score": "4.0/10"
+  },
+  "approaches": [
+    {
+      "approach": "Approach 1: Semantic Summarization",
+      "original_length": 31,
+      "final_length": 12,
+      "messages_summarized": 20,
+      "summary_length": "~150 words (300 chars)",
+      "cache_invalidation": "NO (structure maintained with summary)",
+      "semantic_context_preserved": "YES (in summary)",
+      "latency_after_truncation": "Baseline + ~200ms (one-time summary generation)",
+      "cost_impact": "+$0.000165 per summarization event",
+      "teaching_quality_impact": "Maintains pedagogical context",
+      "persona_consistency": "Preserved (summary includes teaching moments)",
+      "pros": [
+        "Preserves important pedagogical context",
+        "No cache invalidation",
+        "Summary is reusable for future messages",
+        "Maintains conversation coherence"
+      ],
+      "cons": [
+        "Extra API call for summarization (~200ms latency)",
+        "Additional cost per summarization",
+        "Summary quality depends on LLM accuracy"
+      ],
+      "score": "7.5/10"
+    },
+    {
+      "approach": "Approach 2: Tiered Cache Breakpoints",
+      "original_length": 31,
+      "final_length": 31,
+      "cache_breakpoints": 3,
+      "cache_tiers": "System -> Problem -> Mid-Conv -> Recent",
+      "cache_invalidation": "NO (structure always preserved)",
+      "semantic_context_preserved": "YES (nothing dropped)",
+      "latency_after_truncation": "Baseline (no truncation)",
+      "cost_impact": "Optimal - problem context cached separately",
+      "teaching_quality_impact": "No degradation",
+      "persona_consistency": "Fully preserved",
+      "cache_utilization": "Optimal - frequently referenced content cached",
+      "pros": [
+        "No message dropping - all context preserved",
+        "Optimal cache utilization",
+        "Problem context always cached (35% of references)",
+        "Works within 200K context window"
+      ],
+      "cons": [
+        "More complex implementation",
+        "Requires careful cache management",
+        "Doesn't solve truncation problem, just delays it",
+        "Still hits context limits eventually"
+      ],
+      "score": "8.0/10 (best for preventing issues, doesn't solve truncation)"
+    },
+    {
+      "approach": "Approach 3: Hybrid Selective Retention",
+      "original_length": 31,
+      "final_length": 8,
+      "messages_dropped": 23,
+      "high_importance_kept": 2,
+      "low_importance_dropped": 2,
+      "cache_invalidation": "NO (structure preserved)",
+      "semantic_context_preserved": "YES (important messages kept)",
+      "latency_after_truncation": "Baseline + ~5ms (fast heuristic classification)",
+      "cost_impact": "Minimal (no extra API calls)",
+      "teaching_quality_impact": "Preserves key pedagogical moments",
+      "persona_consistency": "Preserved (Socratic examples kept)",
+      "classification_method": "Fast heuristics (no LLM needed)",
+      "pros": [
+        "Keeps pedagogically important messages",
+        "No expensive LLM calls for classification",
+        "Fast heuristic-based (~5ms overhead)",
+        "Preserves misconceptions and breakthroughs",
+        "Drops only filler/encouragement"
+      ],
+      "cons": [
+        "Heuristics might miss some important messages",
+        "Classification rules need tuning",
+        "Still drops some context (but smart about it)"
+      ],
+      "score": "8.5/10 (best balance of quality, cost, and latency)"
+    }
+  ],
+  "recommendation": {
+    "primary": "Approach 3: Hybrid Selective Retention",
+    "reasoning": "Best balance of teaching quality (8.5/10), minimal cost impact, and fast execution. Preserves pedagogically important messages while dropping filler.",
+    "secondary": "Approach 1: Semantic Summarization",
+    "secondary_reasoning": "Best for very long conversations (>30 messages) where context must be preserved. Trade-off: +200ms latency and API cost.",
+    "not_recommended": "Approach 2: Tiered Cache Breakpoints",
+    "not_recommended_reasoning": "Doesn't solve truncation problem, only delays it. Good optimization but not a solution."
+  },
+  "implementation_notes": {
+    "recommended_deployment": "Start with Approach 3 (Hybrid Selective) for MVP. Add Approach 1 (Summarization) as fallback for conversations >40 messages.",
+    "monitoring_metrics": [
+      "Persona consistency score (Socratic question ratio)",
+      "Solution leakage events",
+      "Cache hit rate",
+      "Time-to-first-token",
+      "Student satisfaction (repetitive teaching complaints)"
+    ]
+  }
+}
